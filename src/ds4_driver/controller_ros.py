@@ -25,6 +25,7 @@ class ControllerRos(Controller):
         # Only publish Joy messages on change
         self._autorepeat_rate = rospy.get_param("~autorepeat_rate", 0)
         self._prev_joy = None
+        self._prev_status = None
 
         # Use ROS-standard messages (like sensor_msgs/Joy)
         if self.use_standard_msgs:
@@ -44,6 +45,10 @@ class ControllerRos(Controller):
             self.sub_feedback = rospy.Subscriber(
                 "set_feedback", Feedback, self.cb_feedback, queue_size=1
             )
+
+            if self._autorepeat_rate != 0:
+                period = 1.0 / self._autorepeat_rate
+                rospy.Timer(rospy.Duration.from_sec(period), self.cb_status_pub_timer)            
 
     def cb_report(self, report):
         """
@@ -88,7 +93,8 @@ class ControllerRos(Controller):
 
             self._prev_joy = joy_msg
         else:
-            self.pub_status.publish(status_msg)
+            self._prev_status = status_msg
+            # self.pub_status.publish(status_msg)
 
     def cb_feedback(self, msg):
         """
@@ -164,6 +170,10 @@ class ControllerRos(Controller):
     def cb_joy_pub_timer(self, _):
         if self._prev_joy is not None:
             self.pub_joy.publish(self._prev_joy)
+
+    def cb_status_pub_timer(self, _):
+        if self._prev_status is not None:
+            self.pub_status.publish(self._prev_status)            
 
     @staticmethod
     def _report_to_status_(report_msg, deadzone=0.05):
